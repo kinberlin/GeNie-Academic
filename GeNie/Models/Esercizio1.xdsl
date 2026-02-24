@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This network was created in GeNIe Academic, which can be used for academic teaching and research purposes only -->
+<smile version="1.0" id="Network1" numsamples="10000" discsamples="10000">
+	<nodes>
+		<decision id="Develop_Prototype_">
+			<state id="No" />
+			<state id="Yes" />
+		</decision>
+		<cpt id="Node1">
+			<state id="Standard" />
+			<state id="High" />
+			<parents>Develop_Prototype_</parents>
+			<probabilities>0.6 0.4 0.15 0.85</probabilities>
+		</cpt>
+		<cpt id="Market_Demand">
+			<state id="Low" />
+			<state id="High" />
+			<probabilities>0.5 0.5</probabilities>
+		</cpt>
+		<decision id="Conduct_marketing_research_">
+			<state id="No" />
+			<state id="Yes" />
+			<property id="Yes">1000</property>
+			<property id="No">0</property>
+		</decision>
+		<cpt id="Research_result">
+			<state id="High" />
+			<state id="Low" />
+			<parents>Market_Demand Conduct_marketing_research_</parents>
+			<probabilities>0.1 0.9 0.1 0.9 0.9 0.1 0.9 0.1</probabilities>
+		</cpt>
+		<decision id="Produce__">
+			<state id="No" />
+			<state id="Yes" />
+		</decision>
+		<cpt id="Profit_Level">
+			<state id="None" />
+			<state id="Low" />
+			<state id="High" />
+			<parents>Node1 Produce__ Market_Demand</parents>
+			<probabilities>1 0 0 1 0 0 0.15 0.5 0.35 0.15 0.4 0.45 1 0 0 1 0 0 0.2 0.5 0.3 0 0.2 0.8</probabilities>
+		</cpt>
+		<utility id="Profit">
+			<parents>Profit_Level</parents>
+			<utilities>2500 10000 50000</utilities>
+		</utility>
+	</nodes>
+	<extensions>
+		<genie version="1.0" app="GeNIe 5.0.5310.0 ACADEMIC" name="Network1">
+			<node id="Node1">
+				<name>Product Quality</name>
+				<interior color="e5f6f7" />
+				<outline color="000080" />
+				<font color="000000" name="Arial" size="8" />
+				<position>475 243 652 338</position>
+			</node>
+			<node id="Market_Demand">
+				<name>Market Demand</name>
+				<interior color="e5f6f7" />
+				<outline color="000080" />
+				<font color="000000" name="Arial" size="8" />
+				<position>231 203 359 257</position>
+			</node>
+			<node id="Conduct_marketing_research_">
+				<name>Conduct Marketing Research ?</name>
+				<interior color="e5f6f7" />
+				<outline color="000080" />
+				<font color="000000" name="Arial" size="8" />
+				<position>76 107 315 165</position>
+			</node>
+			<node id="Develop_Prototype_">
+				<name>Develop Prototype ?</name>
+				<interior color="e5f6f7" />
+				<outline color="000080" />
+				<font color="000000" name="Arial" size="8" />
+				<position>484 59 640 116</position>
+			</node>
+			<node id="Profit">
+				<name>Profit</name>
+				<interior color="e5f6f7" />
+				<outline color="000080" />
+				<font color="000000" name="Arial" size="8" />
+				<position>364 598 492 666</position>
+			</node>
+			<node id="Research_result">
+				<name>Research result</name>
+				<interior color="e5f6f7" />
+				<outline color="000080" />
+				<font color="000000" name="Arial" size="8" />
+				<position>154 323 264 378</position>
+			</node>
+			<node id="Profit_Level">
+				<name>Profit Level</name>
+				<interior color="e5f6f7" />
+				<outline color="000080" />
+				<font color="000000" name="Arial" size="8" />
+				<position>347 435 508 522</position>
+			</node>
+			<node id="Produce__">
+				<name>Produce ?</name>
+				<interior color="e5f6f7" />
+				<outline color="000080" />
+				<font color="000000" name="Arial" size="8" />
+				<position>138 437 294 509</position>
+			</node>
+		</genie>
+	</extensions>
+</smile>
