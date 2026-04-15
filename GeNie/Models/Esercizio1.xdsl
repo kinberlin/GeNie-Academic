@@ -27,7 +27,7 @@
 			<state id="High" />
 			<state id="Low" />
 			<parents>Market_Demand Conduct_marketing_research_</parents>
-			<probabilities>0.1 0.9 0.1 0.9 0.9 0.1 0.9 0.1</probabilities>
+			<probabilities>0 1 0.1 0.9 1 0 0.9 0.1</probabilities>
 		</cpt>
 		<decision id="Produce__">
 			<state id="No" />
@@ -44,6 +44,18 @@
 			<parents>Profit_Level</parents>
 			<utilities>2500 10000 50000</utilities>
 		</utility>
+		<utility id="Node2">
+			<parents>Conduct_marketing_research_</parents>
+			<utilities>0 -1000</utilities>
+		</utility>
+		<utility id="Node3">
+			<parents>Develop_Prototype_</parents>
+			<utilities>0 -5000</utilities>
+		</utility>
+		<mau id="Node4">
+			<parents>Node3 Node2 Profit</parents>
+			<weights>1 1 1</weights>
+		</mau>
 	</nodes>
 	<extensions>
 		<genie version="1.0" app="GeNIe 5.0.5310.0 ACADEMIC" name="Network1">
@@ -52,56 +64,77 @@
 				<interior color="e5f6f7" />
 				<outline color="000080" />
 				<font color="000000" name="Arial" size="8" />
-				<position>475 243 652 338</position>
+				<position>515 243 692 338</position>
 			</node>
 			<node id="Market_Demand">
 				<name>Market Demand</name>
 				<interior color="e5f6f7" />
 				<outline color="000080" />
 				<font color="000000" name="Arial" size="8" />
-				<position>231 203 359 257</position>
+				<position>271 203 399 257</position>
 			</node>
 			<node id="Conduct_marketing_research_">
 				<name>Conduct Marketing Research ?</name>
 				<interior color="e5f6f7" />
 				<outline color="000080" />
 				<font color="000000" name="Arial" size="8" />
-				<position>76 107 315 165</position>
+				<position>116 107 355 165</position>
 			</node>
 			<node id="Develop_Prototype_">
 				<name>Develop Prototype ?</name>
 				<interior color="e5f6f7" />
 				<outline color="000080" />
 				<font color="000000" name="Arial" size="8" />
-				<position>484 59 640 116</position>
+				<position>524 59 680 116</position>
 			</node>
 			<node id="Profit">
 				<name>Profit</name>
 				<interior color="e5f6f7" />
 				<outline color="000080" />
 				<font color="000000" name="Arial" size="8" />
-				<position>364 598 492 666</position>
+				<position>404 598 532 666</position>
 			</node>
 			<node id="Research_result">
 				<name>Research result</name>
 				<interior color="e5f6f7" />
 				<outline color="000080" />
 				<font color="000000" name="Arial" size="8" />
-				<position>154 323 264 378</position>
+				<position>194 323 304 378</position>
 			</node>
 			<node id="Profit_Level">
 				<name>Profit Level</name>
 				<interior color="e5f6f7" />
 				<outline color="000080" />
 				<font color="000000" name="Arial" size="8" />
-				<position>347 435 508 522</position>
+				<position>387 435 548 522</position>
 			</node>
 			<node id="Produce__">
 				<name>Produce ?</name>
 				<interior color="e5f6f7" />
 				<outline color="000080" />
 				<font color="000000" name="Arial" size="8" />
-				<position>138 437 294 509</position>
+				<position>178 437 334 509</position>
+			</node>
+			<node id="Node2">
+				<name>Marketing Fees</name>
+				<interior color="e5f6f7" />
+				<outline color="000080" />
+				<font color="000000" name="Arial" size="8" />
+				<position>19 417 139 476</position>
+			</node>
+			<node id="Node3">
+				<name>Develop Prototype</name>
+				<interior color="e5f6f7" />
+				<outline color="000080" />
+				<font color="000000" name="Arial" size="8" />
+				<position>725 403 865 456</position>
+			</node>
+			<node id="Node4">
+				<name>Total Utility</name>
+				<interior color="e5f6f7" />
+				<outline color="000080" />
+				<font color="000000" name="Arial" size="8" />
+				<position>419 747 530 812</position>
 			</node>
 		</genie>
 	</extensions>
