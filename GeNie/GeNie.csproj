@@ -64,6 +64,9 @@
     <None Include="Models\Esercizio1.xdsl">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="Models\Network2.xdsl">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Content Include="smileNET.dll" />

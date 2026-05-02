@@ -1,13 +1,9 @@
 ﻿using Smile;
 using System;
 using System.Collections.Generic;
-using System.Data;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading.Tasks;
-using static GeNie.Program;
 
 namespace GeNie
 {
@@ -40,18 +36,18 @@ namespace GeNie
     0xff,0x83,0x51,0x70,0x93,0xbb,0xc2,0xe0,0x7a,0xa1,0x7e,0x7d,0xdd,0x54,0x6d,0x7b
     }
 );
-            // Load your GeNIe model
             _net = new Smile.Network();
             _net.ReadFile(genieFilePath);
 
-            // Auto-detect node types — no hardcoding, works with any model
             _types = new SmileNodeTypeDetector();
             _types.AutoDetect(_net);
         }
 
-        /// <summary>
-        /// Finds all decision nodes in the network.
-        /// </summary>
+        // ══════════════════════════════════════════════════════════════════
+        //  NODE QUERIES
+        // ══════════════════════════════════════════════════════════════════
+
+        /// <summary>All decision node handles.</summary>
         public List<int> GetDecisionNodes()
         {
             var list = new List<int>();
@@ -62,8 +58,62 @@ namespace GeNie
         }
 
         /// <summary>
-        /// Finds all utility nodes in the network.
+        /// Decision nodes in temporal / topological order.
+        /// Nodes with no informational predecessors (among decision nodes) come first.
+        /// Falls back to raw enumeration order if topology cannot be determined.
         /// </summary>
+        public List<int> GetDecisionNodesOrdered()
+        {
+            List<int> decisions = GetDecisionNodes();
+            if (decisions.Count <= 1) return decisions;
+
+            // Build a simple topological sort based on SMILE parent lists.
+            // A decision node A precedes B if A is an (indirect) parent of B.
+            // We use Kahn's algorithm over the decision-node subgraph.
+
+            // Build adjacency: parents of each decision node that are also decision nodes
+            var inEdgeCount = new Dictionary<int, int>();
+            var children = new Dictionary<int, List<int>>();
+            var handleSet = new HashSet<int>(decisions);
+
+            foreach (int d in decisions)
+            {
+                inEdgeCount[d] = 0;
+                children[d] = new List<int>();
+            }
+
+            foreach (int d in decisions)
+            {
+                // GetParents returns int[] of parent handles
+                int[] parents;
+                try { parents = _net.GetParents(d); }
+                catch { parents = new int[0]; }
+
+                foreach (int p in parents)
+                    if (handleSet.Contains(p))
+                    {
+                        children[p].Add(d);
+                        inEdgeCount[d]++;
+                    }
+            }
+
+            var queue = new Queue<int>(decisions.Where(d => inEdgeCount[d] == 0));
+            var sorted = new List<int>();
+
+            while (queue.Count > 0)
+            {
+                int node = queue.Dequeue();
+                sorted.Add(node);
+                foreach (int child in children[node])
+                    if (--inEdgeCount[child] == 0)
+                        queue.Enqueue(child);
+            }
+
+            // If there's a cycle (shouldn't happen in a valid ID) fall back
+            return sorted.Count == decisions.Count ? sorted : decisions;
+        }
+
+        /// <summary>All utility node handles.</summary>
         public List<int> GetUtilityNodes()
         {
             var list = new List<int>();
@@ -73,36 +123,113 @@ namespace GeNie
             return list;
         }
 
-        /// <summary>
-        /// Sets evidence on a chance node by state name.
-        /// Call this BEFORE ComputeOptimalDecisions().
-        /// </summary>
+        /// <summary>Returns (handle, nodeId, stateNames) for every chance node.</summary>
+        public List<(int handle, string id, string[] states)> GetChanceNodeInfo()
+        {
+            var result = new List<(int, string, string[])>();
+            for (int h = _net.GetFirstNode(); h >= 0; h = _net.GetNextNode(h))
+                if ((int)_net.GetNodeType(h) == _types.Chance)
+                    result.Add((h, _net.GetNodeId(h), GetStateNames(h)));
+            return result;
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        //  ACCESSORS (used by Program.cs)
+        // ══════════════════════════════════════════════════════════════════
+
+        public string GetNodeId(int handle) => _net.GetNodeId(handle);
+        public string[] GetStateNames(int handle) => GetNodeStateNamesInternal(handle);
+
+        // ══════════════════════════════════════════════════════════════════
+        //  EVIDENCE
+        // ══════════════════════════════════════════════════════════════════
+
+        /// <summary>Sets evidence on a chance OR decision node by state name.</summary>
         public void SetEvidence(string nodeId, string stateName)
         {
             int handle = _net.GetNode(nodeId);
             if (handle < 0) throw new ArgumentException($"Node '{nodeId}' not found.");
 
-            int stateIdx = GetStateIndexByName(_net, handle, stateName);
-            if (stateIdx < 0) throw new ArgumentException($"State '{stateName}' not found in node '{nodeId}'.");
-
+            int stateIdx = FindStateIndex(_net, handle, stateName);
             _net.SetEvidence(handle, stateIdx);
-            Console.WriteLine($"[Evidence] {nodeId} = {stateName}");
+            Console.WriteLine($"  [Evidence] {nodeId} = {stateName}");
         }
 
-        /// <summary>
-        /// Clears all evidence from the network.
-        /// </summary>
+        /// <summary>Sets evidence by handle (used when locking user decisions).</summary>
+        public void SetEvidenceByHandle(int handle, string stateName)
+        {
+            int stateIdx = FindStateIndex(_net, handle, stateName);
+            _net.SetEvidence(handle, stateIdx);
+        }
+
+        /// <summary>Clears evidence on all chance nodes.</summary>
         public void ClearAllEvidence()
         {
             for (int h = _net.GetFirstNode(); h >= 0; h = _net.GetNextNode(h))
-                if ((int)_net.GetNodeType(h) == _types.Chance)
-                    _net.ClearEvidence(h);
+            {
+                int t = (int)_net.GetNodeType(h);
+                if (t == _types.Chance || t == _types.Decision)
+                {
+                    try { _net.ClearEvidence(h); } catch { /* ignore if not applicable */ }
+                }
+            }
         }
+
+        // ══════════════════════════════════════════════════════════════════
+        //  INFERENCE
+        // ══════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Runs SMILE inference and extracts the optimal decision policy and expected utilities.
+        /// </summary>
+        public DecisionResult ComputeOptimalDecisions()
+        {
+            _net.UpdateBeliefs();
+
+            var result = new DecisionResult();
+
+            foreach (int dHandle in GetDecisionNodes())
+                ExtractDecisionPolicy(dHandle, result);
+
+            foreach (int uHandle in GetUtilityNodes())
+            {
+                string nodeId = _net.GetNodeId(uHandle);
+                double[] vals = _net.GetNodeValue(uHandle);
+                result.ExpectedUtilities[nodeId] = (vals != null && vals.Length > 0)
+                    ? vals[0] : double.NaN;
+            }
+
+            return result;
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        //  DEBUG
+        // ══════════════════════════════════════════════════════════════════
+
+        public void DebugPrintAllNodes()
+        {
+            Console.WriteLine("\n=== DEBUG: ALL NODES ===");
+            for (int h = _net.GetFirstNode(); h >= 0; h = _net.GetNextNode(h))
+            {
+                var type = _net.GetNodeType(h);
+                string id = _net.GetNodeId(h);
+                string[] states = new string[0];
+                try { states = GetStateNames(h); } catch { }
+                Console.WriteLine(
+                    $"  {id,-30} type={type} ({(int)type})  states=[{string.Join(", ", states)}]");
+            }
+            Console.WriteLine($"\n  Detected: Decision={_types.Decision}  Chance={_types.Chance}  Utility={_types.Utility}");
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        //  PRIVATE HELPERS
+        // ══════════════════════════════════════════════════════════════════
+
         private void ExtractDecisionPolicy(int dHandle, DecisionResult result)
         {
             string nodeId = _net.GetNodeId(dHandle);
             double[] values = _net.GetNodeValue(dHandle);
-            string[] states = GetNodeStateNames(dHandle);
+            string[] states = GetStateNames(dHandle);
 
             if (values == null || values.Length == 0)
             {
@@ -112,9 +239,7 @@ namespace GeNie
 
             int stateCount = states.Length;
 
-            // values may be stateCount * N where N = number of parent combinations
-            // Layout is: [state0_parentCombo0, state1_parentCombo0, state0_parentCombo1, ...]
-            // Aggregate by taking the average EU per state across all parent combinations
+            // values layout: [state0_parentCombo0, state1_parentCombo0, state0_parentCombo1, ...]
             double[] euPerState = new double[stateCount];
             int numCombinations = values.Length / stateCount;
 
@@ -125,7 +250,6 @@ namespace GeNie
             for (int s = 0; s < stateCount; s++)
                 euPerState[s] /= numCombinations;
 
-            // Find best state
             int bestIdx = 0;
             double bestVal = double.NegativeInfinity;
             for (int i = 0; i < stateCount; i++)
@@ -144,33 +268,8 @@ namespace GeNie
 
             result.Policies.Add(policy);
         }
-        /// <summary>
-        /// Runs SMILE inference and extracts the optimal decision policy and expected utilities.
-        /// SMILE handles traversal order internally — you do NOT need to start from the utility node.
-        /// </summary>
-        public DecisionResult ComputeOptimalDecisions()
-        {
-            // This single call triggers full ID/LIMID inference
-            _net.UpdateBeliefs();
 
-            var result = new DecisionResult();
-
-            foreach (int dHandle in GetDecisionNodes())
-                ExtractDecisionPolicy(dHandle, result);
-
-            // --- Extract total expected utility from utility nodes ---
-            foreach (int uHandle in GetUtilityNodes())
-            {
-                string nodeId = _net.GetNodeId(uHandle);
-                double[] vals = _net.GetNodeValue(uHandle);
-                // Utility nodes typically return a single aggregated EU value
-                result.ExpectedUtilities[nodeId] = vals.Length > 0 ? vals[0] : double.NaN;
-            }
-
-            return result;
-        }
-
-        private string[] GetNodeStateNames(int handle)
+        private string[] GetNodeStateNamesInternal(int handle)
         {
             int count = _net.GetOutcomeCount(handle);
             var names = new string[count];
@@ -178,32 +277,20 @@ namespace GeNie
                 names[i] = _net.GetOutcomeId(handle, i);
             return names;
         }
-        private int GetStateIndexByName(Network net, int nodeHandle, string stateName)
+
+        private int FindStateIndex(Network net, int nodeHandle, string stateName)
         {
             int count = net.GetOutcomeCount(nodeHandle);
             for (int i = 0; i < count; i++)
-            {
                 if (net.GetOutcomeId(nodeHandle, i) == stateName)
                     return i;
-            }
-            throw new ArgumentException($"State '{stateName}' not found in node '{net.GetNodeId(nodeHandle)}'.");
+            throw new ArgumentException(
+                $"State '{stateName}' not found in node '{net.GetNodeId(nodeHandle)}'.");
         }
+
         public void Dispose()
         {
             _net?.Dispose();
         }
-
-        // Add this debug method to InfluenceDiagramAnalyzer
-        public void DebugPrintAllNodes()
-        {
-            Console.WriteLine("\n=== DEBUG: ALL NODES ===");
-            for (int h = _net.GetFirstNode(); h >= 0; h = _net.GetNextNode(h))
-            {
-                var type = _net.GetNodeType(h);
-                string id = _net.GetNodeId(h);
-                Console.WriteLine($"  Node: {id} | TypeRawValue: {(int)type} | TypeName: {type}");
-            }
-        }
     }
-
 }

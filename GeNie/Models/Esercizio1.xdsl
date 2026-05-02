@@ -2,9 +2,16 @@
 <!-- This network was created in GeNIe Academic, which can be used for academic teaching and research purposes only -->
 <smile version="1.0" id="Network1" numsamples="10000" discsamples="10000">
 	<nodes>
+		<decision id="Conduct_marketing_research_">
+			<state id="No" />
+			<state id="Yes" />
+			<property id="Yes">1000</property>
+			<property id="No">0</property>
+		</decision>
 		<decision id="Develop_Prototype_">
 			<state id="No" />
 			<state id="Yes" />
+			<parents>Conduct_marketing_research_</parents>
 		</decision>
 		<cpt id="Node1">
 			<state id="Standard" />
@@ -17,12 +24,6 @@
 			<state id="High" />
 			<probabilities>0.5 0.5</probabilities>
 		</cpt>
-		<decision id="Conduct_marketing_research_">
-			<state id="No" />
-			<state id="Yes" />
-			<property id="Yes">1000</property>
-			<property id="No">0</property>
-		</decision>
 		<cpt id="Research_result">
 			<state id="High" />
 			<state id="Low" />
